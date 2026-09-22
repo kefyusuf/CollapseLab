@@ -1,6 +1,6 @@
 # CF-001 Coordinated Omission — Implementation Plan and Execution Ledger
 
-**Status:** Tasks 1–4 complete; Task 5 is the next implementation gate.  
+**Status:** Tasks 1–5 complete; Task 6 is the next implementation gate.  
 **Spec:** `docs/superpowers/specs/2026-09-22-collapselab-v0.1-design.md`
 
 ## Goal
@@ -117,7 +117,7 @@ Produces:
 - k6 2.2.0 tool profile,
 - internal experiment network,
 - separate host-access management bridge,
-- 1-second Prometheus scrape/evaluation interval,
+- Prometheus evidence collection; CF-001 scrape resolution is 100ms with 1s rule evaluation after Task 5 measurement-integrity hardening,
 - loopback-only host ports,
 - bounded readiness polling,
 - deterministic teardown,
@@ -224,30 +224,184 @@ Reason: CF-001 must detect generator saturation. Allowing k6 to grow the worker 
 
 Cost if wrong: a future legitimate workload requiring more than 100 VUs will surface dropped iterations and become INVALID rather than silently scaling the generator. This is the safer failure mode for CF-001.
 
-## Task 5 — Evidence Parsing and Validity Model — NEXT
+## Task 5 — Evidence Parsing and Validity Model — COMPLETE
 
-Implement CF-001-specific Go types/parsers for:
+Task 5 establishes the boundary between **measurement validity** and **hypothesis evaluation**.
 
-- k6 summary metrics,
-- Prometheus query results,
-- trigger window,
-- rate stability,
-- dropped iterations,
-- achieved open arrival ratio,
-- p99 and peak-inflight comparison,
-- recovery window.
-
-Result order:
+The evaluation order is locked:
 
 ```text
 configuration
+  -> evidence parsing
   -> measurement validity
-  -> hypothesis assertions
+  -> VALID?
+       |-- no  -> INVALID
+       '-- yes -> hypothesis assertions
+                    |-- pass -> SUPPORTED
+                    '-- fail -> NOT_SUPPORTED
 ```
 
-An invalid measurement cannot become a hypothesis failure.
+An invalid measurement is never reported as a failed systems hypothesis.
 
-## Task 6 — CF-001 Runner and Evidence Bundle — PENDING
+### Evidence parsers
+
+CF-001 now has typed parsers for:
+
+- k6 summary evidence,
+- Prometheus matrix query responses,
+- completed SUT trigger windows.
+
+The k6 parser requires:
+
+- schema version 1,
+- scenario identity `closed|open`,
+- `work_latency p(99)`,
+- iteration rate,
+- normalized dropped-iteration evidence,
+- `http_req_failed.rate`,
+- failed check count.
+
+The Prometheus matrix parser preserves labels and timestamped samples and rejects:
+
+- non-success API responses,
+- non-matrix responses,
+- malformed samples,
+- non-finite values,
+- non-monotonic sample timestamps.
+
+The trigger parser requires:
+
+- positive generation,
+- actual start,
+- actual end,
+- inactive/completed state,
+- end strictly after start.
+
+### Measurement validity
+
+A pair is `INVALID` before hypothesis evaluation when any required measurement invariant fails.
+
+Current validity gates include:
+
+- invalid experiment configuration,
+- scenario identity mismatch,
+- incomplete trigger window,
+- non-finite/invalid evidence,
+- open achieved arrival ratio below the configured minimum,
+- dropped iterations above the configured maximum,
+- any HTTP request failure,
+- any failed exact-204 check,
+- unstable pre-trigger rate,
+- non-comparable closed/open pre-trigger rates,
+- material telemetry gaps,
+- insufficient in-flight telemetry across the actual stall window,
+- insufficient post-trigger telemetry to evaluate recovery.
+
+When `INVALID` is returned, `HypothesisReasons` must remain empty.
+
+### Hypothesis evaluation
+
+Only valid evidence reaches hypothesis assertions.
+
+CF-001 currently evaluates:
+
+- closed p99 ceiling,
+- open p99 floor,
+- open/closed p99 ratio,
+- open/closed peak in-flight ratio.
+
+If valid evidence misses one or more hypothesis thresholds, status is `NOT_SUPPORTED`.
+
+If all hypothesis thresholds pass, status is `SUPPORTED`.
+
+### Recovery semantics
+
+Recovery is evaluated independently from measurement validity.
+
+- **Enough post-trigger telemetry + no stable recovery window** = valid observed non-recovery.
+- **Not enough telemetry to decide whether recovery occurred** = `INVALID`.
+
+This prevents a real recovery failure from being mislabeled as a broken measurement while still rejecting evidence that cannot support a recovery conclusion.
+
+### Stall-scale observability correction
+
+Task 5 self-review found a measurement flaw in the original infrastructure:
+
+```text
+canonical stall = 500ms
+Prometheus scrape = 1s
+```
+
+A 1-second scrape cannot reliably capture peak in-flight behavior during a 500ms event.
+
+A regression test now requires:
+
+```text
+scrape_interval <= stall_duration / 2
+```
+
+Canonical Prometheus settings are now:
+
+```yaml
+scrape_interval: 100ms
+scrape_timeout: 90ms
+evaluation_interval: 1s
+```
+
+This gives multiple scrape opportunities inside the canonical 500ms stall.
+
+### Real-runtime parser verification
+
+Synthetic fixtures are not the only parser evidence.
+
+CI runs the pinned `grafana/k6:2.2.0` closed and open workloads, writes their real summary files, then executes the Go parser against those exact generated files.
+
+The runtime summary gate also requires:
+
+- `p(99)` in `work_latency`,
+- `http_req_failed.rate == 0`,
+- `checks.fails == 0`,
+- parseable closed/open scenario identity.
+
+### TDD / verification history
+
+Core parser/evaluator gate:
+
+- RED run #11 / `35723020997`
+  - expected missing parser/evaluator APIs.
+- GREEN run #12 / `35723333278`
+  - parser/evaluator tests,
+  - Go race suite,
+  - pinned k6 workloads,
+  - infrastructure gate all passed.
+
+Observability-resolution gate:
+
+- RED run #13 / `35723612560`
+  - exact failure: `scrape interval 1s cannot reliably observe 500ms stall; want <= 250ms`.
+- first runtime integration exposed a repository-relative evidence-path bug.
+- GREEN run #16 / `35724005834`
+  - 100ms Prometheus scrape accepted at runtime,
+  - real closed/open summaries successfully parsed by `ParseK6Summary`.
+
+Request-success validity gate:
+
+- RED run #17 / `35724363406`
+  - expected missing `HTTPReqFailedRate` and `ChecksFailed` evidence fields.
+- final GREEN run #18 / `35724503011`
+  - full Go race suite: PASS,
+  - 100ms Prometheus runtime: PASS,
+  - pinned k6 inspect: PASS,
+  - closed/open workloads: PASS,
+  - actual generated summaries: PASS,
+  - HTTP/check validity evidence: PASS,
+  - teardown: PASS.
+
+Final Task 5 production head:
+
+`f938727465aa88e82dce1f2db332b3317b8b3e94`
+
+## Task 6 — CF-001 Runner and Evidence Bundle — NEXT
 
 Runner responsibilities:
 
@@ -299,6 +453,6 @@ Feature branch:
 
 `feat/cf-001-coordinated-omission`
 
-At Task 3 completion it is isolated from `main`; `main` remains bootstrap-only.
+At Task 5 completion it remains isolated from `main`; `main` remains bootstrap-only.
 
-The next safe implementation boundary is **Task 5 only**.
+The next safe implementation boundary is **Task 6 only**.

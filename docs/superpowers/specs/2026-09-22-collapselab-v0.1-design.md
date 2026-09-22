@@ -342,7 +342,8 @@ Completed and verified:
 - Task 1 — configuration contract,
 - Task 2 — deterministic SUT,
 - Task 3 — Docker Compose + Prometheus infrastructure,
-- Task 4 — explicit closed/open k6 workload semantics.
+- Task 4 — explicit closed/open k6 workload semantics,
+- Task 5 — evidence parsing and measurement-validity model.
 
 Task 3 runtime evidence:
 
@@ -370,4 +371,18 @@ Task 4 runtime evidence:
 - machine-readable summaries: PASS
 - dropped-iteration evidence normalization: PASS
 
-Next implementation gate: **Task 5 — evidence parsing and measurement-validity model**.
+Task 5 verification evidence:
+
+- parser/evaluator RED run: #11 / `35723020997`
+- core parser/evaluator GREEN run: #12 / `35723333278`
+- stall-resolution RED run: #13 / `35723612560`
+- real generated-summary parser GREEN run: #16 / `35724005834`
+- request-validity RED run: #17 / `35724363406`
+- final full GREEN run: #18 / `35724503011`
+- verified production head: `f938727465aa88e82dce1f2db332b3317b8b3e94`
+- final Prometheus scrape interval: 100ms
+- generated k6 closed/open summaries parsed by Go evidence parser: PASS
+- HTTP failures and exact-204 check failures invalidate measurement before hypothesis evaluation: PASS
+- INVALID / NOT_SUPPORTED / SUPPORTED ordering: PASS
+
+Next implementation gate: **Task 6 — CF-001 runner and revision-bound evidence bundle**.
