@@ -8,7 +8,11 @@ services:
     ports:
       - "127.0.0.1:18080:8080"
       - "127.0.0.1:19091:9091"
-    networks: [lab]
+    networks:
+      lab:
+        aliases:
+          - sut-lab
+      host_access: {}
 
   prometheus:
     image: prom/prometheus:v3.14.0
@@ -19,7 +23,9 @@ services:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "127.0.0.1:19090:9090"
-    networks: [lab]
+    networks:
+      lab: {}
+      host_access: {}
 
   k6:
     image: grafana/k6:2.2.0
@@ -27,8 +33,11 @@ services:
     volumes:
       - ./workloads/k6:/workloads:ro
       - ./runs:/runs
-    networks: [lab]
+    networks:
+      - lab
 
 networks:
   lab:
     internal: true
+  host_access:
+    driver: bridge
