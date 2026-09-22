@@ -152,7 +152,7 @@ jobs:
               assert "p(99)" in payload["signals"]["work_latency"], payload
               assert "k6" in payload, payload
           PY
-          CF001_SUMMARY_DIR=runs/cf001 go test ./internal/cf001 -run TestGeneratedK6SummariesParse -v
+          CF001_SUMMARY_DIR="$PWD/runs/cf001" go test ./internal/cf001 -run TestGeneratedK6SummariesParse -v
 
       - name: Dump lab diagnostics
         if: failure()
