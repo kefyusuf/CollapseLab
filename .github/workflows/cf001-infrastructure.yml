@@ -40,8 +40,10 @@ jobs:
           docker version
           docker compose version
 
-      - name: Download Go modules
-        run: go mod download
+      - name: Materialize module closure
+        run: |
+          go mod tidy
+          git diff -- go.mod go.sum
 
       - name: Run Go race suite
         run: go test -race ./...
