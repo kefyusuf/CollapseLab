@@ -158,6 +158,48 @@ jobs:
           PY
           CF001_SUMMARY_DIR="$PWD/runs/cf001" go test ./internal/cf001 -run TestGeneratedK6SummariesParse -v
 
+      - name: Run revision-bound CF-001 experiment
+        run: |
+          bundle="$(go run ./cmd/cf001-runner \
+            --config experiments/cf-001-coordinated-omission/experiment.yaml \
+            --runs-root runs/cf-001 \
+            --repo-root .)"
+          test -n "$bundle"
+          bundle="$(realpath "$bundle")"
+          case "$bundle" in
+            "$PWD"/runs/cf-001/*) ;;
+            *) echo "runner returned unexpected bundle path: $bundle" >&2; exit 1 ;;
+          esac
+          echo "CF001_BUNDLE_DIR=$bundle" >> "$GITHUB_ENV"
+
+      - name: Verify revision-bound CF-001 bundle
+        run: |
+          test -n "$CF001_BUNDLE_DIR"
+          CF001_BUNDLE_DIR="$CF001_BUNDLE_DIR" go test ./internal/cf001 -run TestGeneratedRunBundleVerifies -v
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          bundle = Path(os.environ["CF001_BUNDLE_DIR"])
+          manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+          revision = json.loads((bundle / "revision.json").read_text(encoding="utf-8"))
+
+          assert manifest["revision_sha"] == os.environ["GITHUB_SHA"], manifest
+          assert revision["commit"] == os.environ["GITHUB_SHA"], revision
+          assert revision["dirty"] is False, revision
+          assert manifest["config_sha256"], manifest
+          assert len(manifest["artifacts"]) >= 10, manifest
+          PY
+
+      - name: Upload CF-001 Task 6 evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cf001-task6-${{ github.run_id }}
+          path: ${{ env.CF001_BUNDLE_DIR }}
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Dump lab diagnostics
         if: failure()
         run: |
@@ -173,8 +215,8 @@ jobs:
           echo "=== Prometheus targets ==="
           curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/api/v1/targets
           echo
-          echo "=== k6 evidence files ==="
-          find runs/cf001 -maxdepth 1 -type f -print -exec sh -c 'echo "--- $1"; head -c 2000 "$1"; echo' _ {} \; 2>/dev/null
+          echo "=== k6 / bundle evidence files ==="
+          find runs -maxdepth 5 -type f -print -exec sh -c 'echo "--- $1"; head -c 2000 "$1"; echo' _ {} \; 2>/dev/null
           echo "=== SUT container state ==="
           sut_id="$(docker compose ps -q sut)"
           if [ -n "$sut_id" ]; then
