@@ -21,6 +21,8 @@ type K6Evidence struct {
 	WorkLatencyP99MS         float64
 	DroppedIterationsPresent bool
 	DroppedIterations        float64
+	HTTPReqFailedRate        float64
+	ChecksFailed             float64
 }
 
 type MetricPoint struct {
@@ -79,7 +81,9 @@ type k6SummaryEnvelope struct {
 			Present bool    `json:"present"`
 			Count   float64 `json:"count"`
 		} `json:"dropped_iterations"`
-		WorkLatency map[string]float64 `json:"work_latency"`
+		WorkLatency   map[string]float64 `json:"work_latency"`
+		HTTPReqFailed map[string]float64 `json:"http_req_failed"`
+		Checks        map[string]float64 `json:"checks"`
 	} `json:"signals"`
 	K6 struct {
 		Metrics map[string]json.RawMessage `json:"metrics"`
@@ -134,12 +138,30 @@ func ParseK6Summary(data []byte) (K6Evidence, error) {
 		return K6Evidence{}, fmt.Errorf("k6 summary dropped_iterations cannot be absent with non-zero count")
 	}
 
+	httpFailedRate, ok := envelope.Signals.HTTPReqFailed["rate"]
+	if !ok {
+		return K6Evidence{}, fmt.Errorf("k6 summary missing http_req_failed rate evidence")
+	}
+	if !isFiniteUnitInterval(httpFailedRate) {
+		return K6Evidence{}, fmt.Errorf("k6 summary http_req_failed rate must be finite and in [0, 1]")
+	}
+
+	checksFailed, ok := envelope.Signals.Checks["fails"]
+	if !ok {
+		return K6Evidence{}, fmt.Errorf("k6 summary missing checks fails evidence")
+	}
+	if !isFiniteNonNegative(checksFailed) {
+		return K6Evidence{}, fmt.Errorf("k6 summary checks fails must be finite and non-negative")
+	}
+
 	return K6Evidence{
 		Scenario:                 envelope.Scenario,
 		IterationRate:            iterations.Values.Rate,
 		WorkLatencyP99MS:         p99,
 		DroppedIterationsPresent: envelope.Signals.DroppedIterations.Present,
 		DroppedIterations:        dropped,
+		HTTPReqFailedRate:        httpFailedRate,
+		ChecksFailed:             checksFailed,
 	}, nil
 }
 
@@ -179,4 +201,8 @@ func isFinitePositive(value float64) bool {
 
 func isFiniteNonNegative(value float64) bool {
 	return value >= 0 && !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func isFiniteUnitInterval(value float64) bool {
+	return value >= 0 && value <= 1 && !math.IsNaN(value) && !math.IsInf(value, 0)
 }

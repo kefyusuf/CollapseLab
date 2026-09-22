@@ -16,6 +16,8 @@ func TestParseK6SummaryExtractsRequiredEvidence(t *testing.T) {
 	  "scenario": "open",
 	  "signals": {
 	    "dropped_iterations": {"present": true, "count": 2},
+	    "http_req_failed": {"rate": 0, "passes": 0, "fails": 2998},
+	    "checks": {"rate": 1, "passes": 2998, "fails": 0},
 	    "work_latency": {"avg": 55.2, "p(95)": 70.1, "p(99)": 420.5}
 	  },
 	  "k6": {
@@ -42,6 +44,9 @@ func TestParseK6SummaryExtractsRequiredEvidence(t *testing.T) {
 	if !got.DroppedIterationsPresent || got.DroppedIterations != 2 {
 		t.Fatalf("dropped evidence = %+v", got)
 	}
+	if got.HTTPReqFailedRate != 0 || got.ChecksFailed != 0 {
+		t.Fatalf("request evidence = %+v", got)
+	}
 }
 
 func TestParseK6SummaryRejectsMissingP99(t *testing.T) {
@@ -50,6 +55,8 @@ func TestParseK6SummaryRejectsMissingP99(t *testing.T) {
 	  "scenario": "closed",
 	  "signals": {
 	    "dropped_iterations": {"present": false, "count": 0},
+	    "http_req_failed": {"rate": 0, "passes": 0, "fails": 2900},
+	    "checks": {"rate": 1, "passes": 2900, "fails": 0},
 	    "work_latency": {"avg": 50.0, "p(95)": 55.0}
 	  },
 	  "k6": {

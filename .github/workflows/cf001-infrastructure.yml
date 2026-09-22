@@ -148,6 +148,10 @@ jobs:
               assert payload["scenario"] == scenario, payload
               assert isinstance(payload["signals"]["dropped_iterations"]["present"], bool), payload
               assert isinstance(payload["signals"]["dropped_iterations"]["count"], (int, float)), payload
+              assert payload["signals"]["http_req_failed"] is not None, payload
+              assert payload["signals"]["http_req_failed"]["rate"] == 0, payload
+              assert payload["signals"]["checks"] is not None, payload
+              assert payload["signals"]["checks"]["fails"] == 0, payload
               assert payload["signals"]["work_latency"] is not None, payload
               assert "p(99)" in payload["signals"]["work_latency"], payload
               assert "k6" in payload, payload

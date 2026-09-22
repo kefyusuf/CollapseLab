@@ -217,6 +217,20 @@ func validateTrialBasics(expectedScenario string, evidence TrialEvidence, result
 	if !isFiniteNonNegative(evidence.K6.DroppedIterations) {
 		result.InvalidReasons = append(result.InvalidReasons, expectedScenario+" dropped iterations must be finite and non-negative")
 	}
+	if !isFiniteUnitInterval(evidence.K6.HTTPReqFailedRate) {
+		result.InvalidReasons = append(result.InvalidReasons, expectedScenario+" http_req_failed rate must be finite and in [0, 1]")
+	} else if evidence.K6.HTTPReqFailedRate > 0 {
+		result.InvalidReasons = append(result.InvalidReasons,
+			fmt.Sprintf("%s http_req_failed rate %.6f must be zero", expectedScenario, evidence.K6.HTTPReqFailedRate),
+		)
+	}
+	if !isFiniteNonNegative(evidence.K6.ChecksFailed) {
+		result.InvalidReasons = append(result.InvalidReasons, expectedScenario+" failed checks must be finite and non-negative")
+	} else if evidence.K6.ChecksFailed > 0 {
+		result.InvalidReasons = append(result.InvalidReasons,
+			fmt.Sprintf("%s failed checks %.0f must be zero", expectedScenario, evidence.K6.ChecksFailed),
+		)
+	}
 	if evidence.Trigger.Generation == 0 ||
 		evidence.Trigger.Start.IsZero() ||
 		evidence.Trigger.End.IsZero() ||

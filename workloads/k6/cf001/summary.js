@@ -33,6 +33,8 @@ export function encodeSummary(data, scenario) {
       scenario,
       signals: {
         dropped_iterations: counterEvidence(data, 'dropped_iterations'),
+        http_req_failed: metricValues(data, 'http_req_failed'),
+        checks: metricValues(data, 'checks'),
         work_latency: metricValues(data, 'work_latency'),
       },
       k6: data,
