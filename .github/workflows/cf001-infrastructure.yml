@@ -113,6 +113,45 @@ jobs:
           actual="$(docker compose ps --status running --services | sort)"
           test "$actual" = "$expected"
 
+      - name: Inspect pinned k6 workloads
+        run: |
+          make k6-inspect
+          python3 - <<'PY'
+          import json
+
+          with open("runs/cf001/closed-inspect.json", encoding="utf-8") as handle:
+              closed = json.load(handle)
+          with open("runs/cf001/open-inspect.json", encoding="utf-8") as handle:
+              opened = json.load(handle)
+
+          assert closed["scenarios"]["closed"]["executor"] == "constant-vus", closed
+          assert opened["scenarios"]["open"]["executor"] == "constant-arrival-rate", opened
+          PY
+
+      - name: Run canonical closed k6 workload
+        run: make k6-closed
+
+      - name: Run canonical open k6 workload
+        run: make k6-open
+
+      - name: Verify k6 machine-readable summaries
+        run: |
+          python3 - <<'PY'
+          import json
+
+          for scenario in ("closed", "open"):
+              path = f"runs/cf001/{scenario}-summary.json"
+              with open(path, encoding="utf-8") as handle:
+                  payload = json.load(handle)
+
+              assert payload["schema_version"] == 1, payload
+              assert payload["scenario"] == scenario, payload
+              assert isinstance(payload["signals"]["dropped_iterations"]["present"], bool), payload
+              assert isinstance(payload["signals"]["dropped_iterations"]["count"], (int, float)), payload
+              assert payload["signals"]["work_latency"] is not None, payload
+              assert "k6" in payload, payload
+          PY
+
       - name: Dump lab diagnostics
         if: failure()
         run: |
@@ -128,6 +167,8 @@ jobs:
           echo "=== Prometheus targets ==="
           curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/api/v1/targets
           echo
+          echo "=== k6 evidence files ==="
+          find runs/cf001 -maxdepth 1 -type f -print -exec sh -c 'echo "--- $1"; head -c 2000 "$1"; echo' _ {} \; 2>/dev/null
           echo "=== SUT container state ==="
           sut_id="$(docker compose ps -q sut)"
           if [ -n "$sut_id" ]; then
