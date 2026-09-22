@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// Canonical stall telemetry must be sampled densely enough to observe the transient peak.
 func TestPrometheusScrapeResolutionCanObserveCanonicalStall(t *testing.T) {
 	cfg := validConfig()
 
