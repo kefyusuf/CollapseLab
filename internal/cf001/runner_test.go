@@ -263,18 +263,13 @@ func collectedTrialFixture(t *testing.T, evidence TrialEvidence) CollectedTrial 
 
 func prometheusMatrixFixture(t *testing.T, scenario string, samples []MetricPoint) []byte {
 	t.Helper()
-	values := make([][]any, 0, len(samples))
-	for _, sample := range samples {
-		values = append(values, []any{
-			float64(sample.At.UnixNano()) / float64(time.Second),
-			json.Number(formatFloat(sample.Value)),
-		})
-	}
-
 	// Prometheus values are encoded as [unix-seconds, "value"].
 	encodedValues := make([][]any, 0, len(samples))
-	for _, value := range values {
-		encodedValues = append(encodedValues, []any{value[0], value[1].String()})
+	for _, sample := range samples {
+		encodedValues = append(encodedValues, []any{
+			float64(sample.At.UnixNano()) / float64(time.Second),
+			formatFloat(sample.Value),
+		})
 	}
 
 	return mustJSON(t, map[string]any{
