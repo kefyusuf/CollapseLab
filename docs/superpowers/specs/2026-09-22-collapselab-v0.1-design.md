@@ -341,7 +341,8 @@ Completed and verified:
 
 - Task 1 — configuration contract,
 - Task 2 — deterministic SUT,
-- Task 3 — Docker Compose + Prometheus infrastructure.
+- Task 3 — Docker Compose + Prometheus infrastructure,
+- Task 4 — explicit closed/open k6 workload semantics.
 
 Task 3 runtime evidence:
 
@@ -358,4 +359,15 @@ Task 3 runtime evidence:
 - expected running service set: PASS,
 - teardown with no residual containers: PASS.
 
-Next implementation gate: **Task 4 — explicit closed/open k6 workloads**.
+Task 4 runtime evidence:
+
+- TDD RED run: #7 / `35698257737`
+- verified GREEN run: #8 / `35698455401`
+- verified code head: `a9a39ead1c890c6c3cc6e508cfb66e52fc3fbfc5`
+- pinned k6 inspect: PASS
+- closed 5-VU / 30s workload: PASS
+- open 100 iter/s / 100 max VU / 30s workload: PASS
+- machine-readable summaries: PASS
+- dropped-iteration evidence normalization: PASS
+
+Next implementation gate: **Task 5 — evidence parsing and measurement-validity model**.

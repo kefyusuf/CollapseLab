@@ -1,6 +1,6 @@
 # CF-001 Coordinated Omission — Implementation Plan and Execution Ledger
 
-**Status:** Tasks 1–3 complete; Task 4 is the next implementation gate.  
+**Status:** Tasks 1–4 complete; Task 5 is the next implementation gate.  
 **Spec:** `docs/superpowers/specs/2026-09-22-collapselab-v0.1-design.md`
 
 ## Goal
@@ -138,13 +138,11 @@ Canonical Task 3 evidence:
 - Actions run: `35682953253`
 - Verified head: `80a9d1bd809bb84b0afd59c4c6e36911df737c0c`
 
-## Task 4 — Explicit k6 Workload Semantics — NEXT
+## Task 4 — Explicit k6 Workload Semantics — COMPLETE
 
-Goal: implement two inspectable scripts using the same k6 image.
+Produces two inspectable workloads using the same pinned `grafana/k6:2.2.0` image.
 
 ### Closed workload
-
-Must use:
 
 ```text
 executor = constant-vus
@@ -152,48 +150,81 @@ vus      = 5
 duration = 30s
 ```
 
-Requirements:
+Properties:
 
-- target only `http://sut-lab:8080/work`,
-- send `X-CollapseLab-Scenario: closed`,
-- no artificial sleep that changes closed-loop semantics,
-- collect a dedicated `work_latency` metric for `/work`,
-- emit machine-readable summary JSON.
+- target is exactly `http://sut-lab:8080/work`,
+- header is exactly `X-CollapseLab-Scenario: closed`,
+- no sleep-based pacing,
+- dedicated `work_latency` Trend records only `/work` request duration,
+- machine-readable summary is written under `runs/cf001/`.
 
 ### Open workload
-
-Must use:
 
 ```text
 executor          = constant-arrival-rate
 rate              = 100/s
 preAllocatedVUs   = 100
+maxVUs            = 100
 duration          = 30s
 ```
 
-Requirements:
+Properties:
 
-- target only `http://sut-lab:8080/work`,
-- send `X-CollapseLab-Scenario: open`,
-- maintain arrival scheduling independently of response completion,
-- expose `dropped_iterations`,
-- emit the same dedicated `work_latency` metric and summary shape.
+- target is exactly `http://sut-lab:8080/work`,
+- header is exactly `X-CollapseLab-Scenario: open`,
+- arrival scheduling is independent from request completion,
+- dynamic VU expansion is deliberately disabled by setting `maxVUs == preAllocatedVUs`,
+- generator saturation therefore remains visible as `dropped_iterations` instead of being hidden by worker-pool growth,
+- machine-readable summary normalizes dropped-iteration evidence as both `present` and numeric `count`,
+- the same `work_latency` summary shape is used as the closed workload.
 
-### Task 4 acceptance
+### TDD evidence
 
-Before Task 5:
+RED:
 
-- scripts pass k6 syntax/runtime checks using the pinned image,
-- the executor types are mechanically asserted,
-- target host is mechanically asserted as `sut-lab`,
-- scenario labels are exact,
-- no sleep-based pacing appears in the closed script,
-- open run surfaces dropped-iteration evidence,
-- generated summary files are parseable JSON.
+- Actions run `#7` / ID `35698257737`
+- head `a10b5cf14f5f9ad4681e13d14f0fc268a0f7d843`
+- failure was exactly the missing `closed.js`, `open.js`, and `summary.js` contract files.
 
-Do not yet decide whether the experiment hypothesis passes; Task 4 establishes workload semantics only.
+GREEN:
 
-## Task 5 — Evidence Parsing and Validity Model — PENDING
+- Actions run `#8` / ID `35698455401`
+- head `a9a39ead1c890c6c3cc6e508cfb66e52fc3fbfc5`
+- Go 1.27.1 race suite: PASS
+- pinned k6 inspect: PASS
+- closed canonical run: PASS
+- open canonical run: PASS
+- both summary JSON documents parse and satisfy the shared schema: PASS
+- teardown: PASS
+
+Execution evidence from run #8:
+
+```text
+closed:
+  5 looping VUs
+  30s
+  2950 completed iterations
+  0 interrupted iterations
+
+open:
+  100.00 iterations/s
+  maxVUs = 100
+  30s
+  3001 completed iterations
+  0 interrupted iterations
+```
+
+These numbers are workload-semantics evidence only. They are not yet CF-001 hypothesis results because no deterministic stall was orchestrated in Task 4.
+
+### Task 4 ruling
+
+`maxVUs` is fixed to `100`, equal to `preAllocatedVUs`.
+
+Reason: CF-001 must detect generator saturation. Allowing k6 to grow the worker pool dynamically could mask insufficient preallocation and contaminate measurement validity.
+
+Cost if wrong: a future legitimate workload requiring more than 100 VUs will surface dropped iterations and become INVALID rather than silently scaling the generator. This is the safer failure mode for CF-001.
+
+## Task 5 — Evidence Parsing and Validity Model — NEXT
 
 Implement CF-001-specific Go types/parsers for:
 
@@ -270,4 +301,4 @@ Feature branch:
 
 At Task 3 completion it is isolated from `main`; `main` remains bootstrap-only.
 
-The next safe implementation boundary is **Task 4 only**.
+The next safe implementation boundary is **Task 5 only**.
