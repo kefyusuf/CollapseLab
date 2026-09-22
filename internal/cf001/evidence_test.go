@@ -3,6 +3,8 @@ package cf001
 import (
 	"encoding/json"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -371,4 +373,36 @@ func point(at time.Time, value float64) MetricPoint {
 		panic("test helper requires finite value")
 	}
 	return MetricPoint{At: at, Value: value}
+}
+
+
+func TestGeneratedK6SummariesParse(t *testing.T) {
+	dir := os.Getenv("CF001_SUMMARY_DIR")
+	if dir == "" {
+		t.Skip("CF001_SUMMARY_DIR is not set")
+	}
+
+	for _, scenario := range []string{"closed", "open"} {
+		t.Run(scenario, func(t *testing.T) {
+			path := filepath.Join(dir, scenario+"-summary.json")
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read generated summary: %v", err)
+			}
+
+			evidence, err := ParseK6Summary(content)
+			if err != nil {
+				t.Fatalf("parse generated summary: %v", err)
+			}
+			if evidence.Scenario != scenario {
+				t.Fatalf("scenario = %q, want %q", evidence.Scenario, scenario)
+			}
+			if evidence.WorkLatencyP99MS <= 0 {
+				t.Fatalf("p99 = %v", evidence.WorkLatencyP99MS)
+			}
+			if evidence.IterationRate <= 0 {
+				t.Fatalf("iteration rate = %v", evidence.IterationRate)
+			}
+		})
+	}
 }

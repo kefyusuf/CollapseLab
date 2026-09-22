@@ -149,8 +149,10 @@ jobs:
               assert isinstance(payload["signals"]["dropped_iterations"]["present"], bool), payload
               assert isinstance(payload["signals"]["dropped_iterations"]["count"], (int, float)), payload
               assert payload["signals"]["work_latency"] is not None, payload
+              assert "p(99)" in payload["signals"]["work_latency"], payload
               assert "k6" in payload, payload
           PY
+          CF001_SUMMARY_DIR=runs/cf001 go test ./internal/cf001 -run TestGeneratedK6SummariesParse -v
 
       - name: Dump lab diagnostics
         if: failure()

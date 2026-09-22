@@ -60,7 +60,7 @@ func ParsePrometheusMatrix(data []byte) ([]PromSeries, error) {
 				return nil, fmt.Errorf("parse prometheus sample value %q: %w", valueText, err)
 			}
 			if math.IsNaN(value) || math.IsInf(value, 0) {
-				return nil, fmt.Errorf("prometheus sample value must be non-finite")
+				return nil, fmt.Errorf("prometheus sample value is non-finite")
 			}
 
 			at := unixFloatTime(timestamp)
