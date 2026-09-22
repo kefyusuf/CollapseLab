@@ -277,16 +277,12 @@ func (l *DockerCF001Lab) ensureImage(ctx context.Context, ref string) error {
 }
 
 func (l *DockerCF001Lab) resolvedImageIdentity(ctx context.Context, ref string) (string, error) {
-	digest, err := l.commandOutput(ctx, "docker", "image", "inspect", ref, "--format", "{{join .RepoDigests ","}}")
-	if err != nil {
-		return "", fmt.Errorf("inspect image %s: %w", ref, err)
-	}
-	if digest != "" {
-		return digest, nil
-	}
 	id, err := l.commandOutput(ctx, "docker", "image", "inspect", ref, "--format", "{{.Id}}")
 	if err != nil {
 		return "", fmt.Errorf("inspect image id %s: %w", ref, err)
+	}
+	if strings.TrimSpace(id) == "" {
+		return "", fmt.Errorf("inspect image id %s: empty image id", ref)
 	}
 	return ref + "@" + id, nil
 }
