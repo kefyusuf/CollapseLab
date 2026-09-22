@@ -18,6 +18,7 @@ func TestClosedWorkloadContract(t *testing.T) {
 	assertJSMatch(t, source, `["']X-CollapseLab-Scenario["']\s*:\s*["']closed["']`)
 	assertJSMatch(t, source, `new\s+Trend\s*\(\s*["']work_latency["']`)
 	assertJSContains(t, source, "handleSummary")
+	assertJSMatch(t, source, `summaryTrendStats\s*:\s*\[[^\]]*["']p\(99\)["']`)
 
 	if regexp.MustCompile(`\bsleep\s*\(`).MatchString(source) {
 		t.Fatal("closed workload must not contain sleep-based pacing")
@@ -37,6 +38,7 @@ func TestOpenWorkloadContract(t *testing.T) {
 	assertJSMatch(t, source, `["']X-CollapseLab-Scenario["']\s*:\s*["']open["']`)
 	assertJSMatch(t, source, `new\s+Trend\s*\(\s*["']work_latency["']`)
 	assertJSContains(t, source, "handleSummary")
+	assertJSMatch(t, source, `summaryTrendStats\s*:\s*\[[^\]]*["']p\(99\)["']`)
 }
 
 func TestWorkloadSummaryContractSurfacesDroppedIterations(t *testing.T) {
