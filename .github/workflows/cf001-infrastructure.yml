@@ -1,0 +1,99 @@
+name: CF-001 Infrastructure Gate
+
+on:
+  push:
+    branches:
+      - feat/cf-001-coordinated-omission
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cf001-infra-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  infrastructure-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Toolchain evidence
+        run: |
+          go version
+          docker version
+          docker compose version
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Run Go race suite
+        run: go test -race ./...
+
+      - name: Validate Compose model
+        run: make compose-check
+
+      - name: Start lab and run smoke checks
+        run: make lab-smoke
+
+      - name: Verify Prometheus sees the SUT target as healthy
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.request
+
+          with urllib.request.urlopen("http://127.0.0.1:19090/api/v1/targets", timeout=5) as response:
+              payload = json.load(response)
+
+          targets = payload["data"]["activeTargets"]
+          sut = [target for target in targets if target.get("labels", {}).get("job") == "collapselab-sut"]
+          assert len(sut) == 1, f"expected one SUT target, got {len(sut)}"
+          assert sut[0]["health"] == "up", sut[0]
+          assert sut[0]["scrapeUrl"] == "http://sut:8080/metrics", sut[0]
+          PY
+
+      - name: Verify control plane is isolated and reachable
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.request
+
+          with urllib.request.urlopen("http://127.0.0.1:19091/__control/state", timeout=5) as response:
+              payload = json.load(response)
+
+          assert payload["generation"] == 0, payload
+          assert payload["active"] is False, payload
+          PY
+
+      - name: Verify only expected services are running
+        run: |
+          expected="$(printf '%s\n' prometheus sut)"
+          actual="$(docker compose ps --status running --services | sort)"
+          test "$actual" = "$expected"
+
+      - name: Verify module files are canonical
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - name: Tear down lab
+        if: always()
+        run: |
+          make lab-down
+          test -z "$(docker compose ps --all --quiet)"
