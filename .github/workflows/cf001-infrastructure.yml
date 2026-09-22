@@ -54,43 +54,38 @@ jobs:
       - name: Start lab and run smoke checks
         run: make lab-smoke
 
-      - name: Dump lab diagnostics
-        if: failure()
-        run: |
-          set +e
-          echo "=== compose ps ==="
-          docker compose ps --all
-          echo "=== service logs ==="
-          docker compose logs --no-color --tail=200 sut prometheus
-          echo "=== host probes ==="
-          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:18080/healthz
-          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19091/__control/state
-          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/-/ready
-          echo "=== SUT container state ==="
-          sut_id="$(docker compose ps -q sut)"
-          if [ -n "$sut_id" ]; then
-            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$sut_id"
-          fi
-          echo "=== Prometheus container state ==="
-          prometheus_id="$(docker compose ps -q prometheus)"
-          if [ -n "$prometheus_id" ]; then
-            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$prometheus_id"
-          fi
-
       - name: Verify Prometheus sees the SUT target as healthy
         run: |
           python3 - <<'PY'
           import json
+          import time
           import urllib.request
 
-          with urllib.request.urlopen("http://127.0.0.1:19090/api/v1/targets", timeout=5) as response:
-              payload = json.load(response)
+          endpoint = "http://127.0.0.1:19090/api/v1/targets"
+          deadline = time.monotonic() + 15
+          last_payload = None
 
-          targets = payload["data"]["activeTargets"]
-          sut = [target for target in targets if target.get("labels", {}).get("job") == "collapselab-sut"]
-          assert len(sut) == 1, f"expected one SUT target, got {len(sut)}"
-          assert sut[0]["health"] == "up", sut[0]
-          assert sut[0]["scrapeUrl"] == "http://sut-lab:8080/metrics", sut[0]
+          while time.monotonic() < deadline:
+              with urllib.request.urlopen(endpoint, timeout=5) as response:
+                  last_payload = json.load(response)
+
+              targets = last_payload["data"]["activeTargets"]
+              sut = [
+                  target
+                  for target in targets
+                  if target.get("labels", {}).get("job") == "collapselab-sut"
+              ]
+
+              if len(sut) == 1 and sut[0]["health"] == "up":
+                  assert sut[0]["scrapeUrl"] == "http://sut-lab:8080/metrics", sut[0]
+                  break
+
+              time.sleep(0.5)
+          else:
+              raise AssertionError(
+                  "SUT target did not become healthy within 15s: "
+                  + json.dumps(last_payload, sort_keys=True)
+              )
           PY
 
       - name: Verify control plane is isolated and reachable
@@ -117,6 +112,32 @@ jobs:
           expected="$(printf '%s\n' prometheus sut)"
           actual="$(docker compose ps --status running --services | sort)"
           test "$actual" = "$expected"
+
+      - name: Dump lab diagnostics
+        if: failure()
+        run: |
+          set +e
+          echo "=== compose ps ==="
+          docker compose ps --all
+          echo "=== service logs ==="
+          docker compose logs --no-color --tail=200 sut prometheus
+          echo "=== host probes ==="
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:18080/healthz
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19091/__control/state
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/-/ready
+          echo "=== Prometheus targets ==="
+          curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/api/v1/targets
+          echo
+          echo "=== SUT container state ==="
+          sut_id="$(docker compose ps -q sut)"
+          if [ -n "$sut_id" ]; then
+            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$sut_id"
+          fi
+          echo "=== Prometheus container state ==="
+          prometheus_id="$(docker compose ps -q prometheus)"
+          if [ -n "$prometheus_id" ]; then
+            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$prometheus_id"
+          fi
 
       - name: Tear down lab
         if: always()
