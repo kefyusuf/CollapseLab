@@ -40,10 +40,10 @@ jobs:
           docker version
           docker compose version
 
-      - name: Materialize module closure
+      - name: Verify module closure
         run: |
           go mod tidy
-          git diff -- go.mod go.sum
+          git diff --exit-code -- go.mod go.sum
 
       - name: Run Go race suite
         run: go test -race ./...
@@ -53,6 +53,29 @@ jobs:
 
       - name: Start lab and run smoke checks
         run: make lab-smoke
+
+      - name: Dump lab diagnostics
+        if: failure()
+        run: |
+          set +e
+          echo "=== compose ps ==="
+          docker compose ps --all
+          echo "=== service logs ==="
+          docker compose logs --no-color --tail=200 sut prometheus
+          echo "=== host probes ==="
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:18080/healthz
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19091/__control/state
+          curl -v --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/-/ready
+          echo "=== SUT container state ==="
+          sut_id="$(docker compose ps -q sut)"
+          if [ -n "$sut_id" ]; then
+            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$sut_id"
+          fi
+          echo "=== Prometheus container state ==="
+          prometheus_id="$(docker compose ps -q prometheus)"
+          if [ -n "$prometheus_id" ]; then
+            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' "$prometheus_id"
+          fi
 
       - name: Verify Prometheus sees the SUT target as healthy
         run: |
@@ -88,11 +111,6 @@ jobs:
           expected="$(printf '%s\n' prometheus sut)"
           actual="$(docker compose ps --status running --services | sort)"
           test "$actual" = "$expected"
-
-      - name: Verify module files are canonical
-        run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
 
       - name: Tear down lab
         if: always()
