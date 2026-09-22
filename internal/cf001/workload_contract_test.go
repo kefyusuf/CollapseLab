@@ -47,6 +47,8 @@ func TestWorkloadSummaryContractSurfacesDroppedIterations(t *testing.T) {
 	assertJSContains(t, source, "schema_version")
 	assertJSContains(t, source, "scenario")
 	assertJSContains(t, source, "dropped_iterations")
+	assertJSContains(t, source, "http_req_failed")
+	assertJSContains(t, source, "checks")
 	assertJSContains(t, source, "data.metrics")
 }
 

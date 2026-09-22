@@ -406,3 +406,63 @@ func TestGeneratedK6SummariesParse(t *testing.T) {
 		})
 	}
 }
+
+
+func TestParseK6SummaryRejectsMissingHTTPAndCheckEvidence(t *testing.T) {
+	input := []byte(`{
+	  "schema_version": 1,
+	  "scenario": "open",
+	  "signals": {
+	    "dropped_iterations": {"present": false, "count": 0},
+	    "work_latency": {"p(99)": 400}
+	  },
+	  "k6": {
+	    "metrics": {
+	      "iterations": {"values": {"count": 3000, "rate": 100}}
+	    }
+	  }
+	}`)
+
+	_, err := ParseK6Summary(input)
+	if err == nil {
+		t.Fatal("expected missing HTTP/check evidence to be rejected")
+	}
+}
+
+func TestEvaluatePairInvalidatesHTTPOrCheckFailuresBeforeHypothesis(t *testing.T) {
+	cfg := validConfig()
+
+	tests := []struct {
+		name   string
+		mutate func(*TrialEvidence)
+	}{
+		{
+			name: "http request failure",
+			mutate: func(evidence *TrialEvidence) {
+				evidence.K6.HTTPReqFailedRate = 0.01
+			},
+		},
+		{
+			name: "204 contract check failure",
+			mutate: func(evidence *TrialEvidence) {
+				evidence.K6.ChecksFailed = 1
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			closed, opened := validEvidencePair(cfg)
+			tt.mutate(&opened)
+
+			result := EvaluatePair(cfg, closed, opened)
+
+			if result.Status != EvaluationInvalid {
+				t.Fatalf("status = %q, want INVALID; result=%+v", result.Status, result)
+			}
+			if len(result.HypothesisReasons) != 0 {
+				t.Fatalf("hypothesis must not run for invalid request evidence: %+v", result.HypothesisReasons)
+			}
+		})
+	}
+}
