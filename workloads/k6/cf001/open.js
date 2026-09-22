@@ -12,6 +12,7 @@ const workLatency = new Trend('work_latency', true);
 
 export const options = {
   discardResponseBodies: true,
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   scenarios: {
     open: {
       executor: 'constant-arrival-rate',
