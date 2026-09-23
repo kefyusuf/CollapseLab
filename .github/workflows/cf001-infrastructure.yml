@@ -158,47 +158,78 @@ jobs:
           PY
           CF001_SUMMARY_DIR="$PWD/runs/cf001" go test ./internal/cf001 -run TestGeneratedK6SummariesParse -v
 
-      - name: Run revision-bound CF-001 experiment
+      - name: Run canonical CF-001 repetition gate
         run: |
-          bundle="$(go run ./cmd/cf001-runner \
+          rm -rf runs/cf-001
+          mkdir -p runs/cf-001
+          summary="$(go run ./cmd/cf001-repeat \
+            --count 3 \
             --config experiments/cf-001-coordinated-omission/experiment.yaml \
             --runs-root runs/cf-001 \
+            --summary runs/cf-001/repetition-summary.json \
+            --report runs/cf-001/repetition-report.md \
             --repo-root .)"
-          test -n "$bundle"
-          bundle="$(realpath "$bundle")"
-          case "$bundle" in
-            "$PWD"/runs/cf-001/*) ;;
-            *) echo "runner returned unexpected bundle path: $bundle" >&2; exit 1 ;;
+          test -n "$summary"
+          summary="$(realpath "$summary")"
+          case "$summary" in
+            "$PWD"/runs/cf-001/repetition-summary.json) ;;
+            *) echo "repetition runner returned unexpected summary path: $summary" >&2; exit 1 ;;
           esac
-          echo "CF001_BUNDLE_DIR=$bundle" >> "$GITHUB_ENV"
+          echo "CF001_REPETITION_ROOT=$PWD/runs/cf-001" >> "$GITHUB_ENV"
+          echo "CF001_REPETITION_SUMMARY=$summary" >> "$GITHUB_ENV"
 
-      - name: Verify revision-bound CF-001 bundle
+      - name: Verify revision-bound CF-001 repetitions
         run: |
-          test -n "$CF001_BUNDLE_DIR"
-          CF001_BUNDLE_DIR="$CF001_BUNDLE_DIR" go test ./internal/cf001 -run TestGeneratedRunBundleVerifies -v
+          test -n "$CF001_REPETITION_SUMMARY"
+          CF001_REPETITION_SUMMARY="$CF001_REPETITION_SUMMARY" \
+          CF001_REPETITION_ROOT="$CF001_REPETITION_ROOT" \
+            go test ./internal/cf001 -run TestGeneratedRepetitionSummaryVerifies -v
           python3 - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          bundle = Path(os.environ["CF001_BUNDLE_DIR"])
-          manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
-          revision = json.loads((bundle / "revision.json").read_text(encoding="utf-8"))
+          summary_path = Path(os.environ["CF001_REPETITION_SUMMARY"])
+          summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
-          assert manifest["revision_sha"] == os.environ["GITHUB_SHA"], manifest
-          assert revision["commit"] == os.environ["GITHUB_SHA"], revision
-          assert revision["dirty"] is False, revision
-          assert manifest["config_sha256"], manifest
-          assert len(manifest["artifacts"]) >= 10, manifest
+          assert summary["schema_version"] == 1, summary
+          assert summary["revision_sha"] == os.environ["GITHUB_SHA"], summary
+          assert summary["run_count"] == 3, summary
+          assert len(summary["runs"]) == 3, summary
+          for run in summary["runs"]:
+              assert run["revision_sha"] == os.environ["GITHUB_SHA"], run
+              assert run["config_sha256"] == summary["config_sha256"], run
+              assert run["environment_sha256"] == summary["environment_sha256"], run
           PY
 
-      - name: Upload CF-001 Task 6 evidence bundle
+      - name: Upload CF-001 Task 7 repetition evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cf001-task6-${{ github.run_id }}
-          path: ${{ env.CF001_BUNDLE_DIR }}
+          name: cf001-task7-${{ github.run_id }}
+          path: runs/cf-001
           if-no-files-found: error
           retention-days: 7
+
+      - name: Enforce CF-001 repetition gate
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary = json.loads(
+              Path(os.environ["CF001_REPETITION_SUMMARY"]).read_text(encoding="utf-8")
+          )
+          assessment = summary["assessment"]
+          print("repetition gate:", "PASS" if assessment["passed"] else "FAIL")
+          print("hypothesis consensus:", assessment["hypothesis_consensus"])
+          print("p99 ratio stats:", assessment["stats"]["p99_ratio"])
+          print("in-flight ratio stats:", assessment["stats"]["peak_inflight_ratio"])
+          if not assessment["passed"]:
+              for reason in assessment.get("reasons", []):
+                  print("gate reason:", reason)
+              raise SystemExit(1)
+          PY
 
       - name: Dump lab diagnostics
         if: failure()
@@ -215,7 +246,7 @@ jobs:
           echo "=== Prometheus targets ==="
           curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:19090/api/v1/targets
           echo
-          echo "=== k6 / bundle evidence files ==="
+          echo "=== k6 / repetition evidence files ==="
           find runs -maxdepth 5 -type f -print -exec sh -c 'echo "--- $1"; head -c 2000 "$1"; echo' _ {} \; 2>/dev/null
           echo "=== SUT container state ==="
           sut_id="$(docker compose ps -q sut)"

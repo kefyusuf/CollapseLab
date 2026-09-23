@@ -44,3 +44,15 @@ func TestGeneratedRunBundleVerifies(t *testing.T) {
 		t.Fatalf("revision mismatch: evidence=%s manifest=%s", revision.Commit, manifest.RevisionSHA)
 	}
 }
+
+
+func TestGeneratedRepetitionSummaryVerifies(t *testing.T) {
+	summary := os.Getenv("CF001_REPETITION_SUMMARY")
+	root := os.Getenv("CF001_REPETITION_ROOT")
+	if summary == "" || root == "" {
+		t.Skip("CF001_REPETITION_SUMMARY / CF001_REPETITION_ROOT are not set")
+	}
+	if err := VerifyRepetitionSummary(summary, root); err != nil {
+		t.Fatalf("verify generated repetition summary: %v", err)
+	}
+}
