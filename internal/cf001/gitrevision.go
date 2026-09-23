@@ -21,7 +21,7 @@ func (g GitRevisionSource) Revision(ctx context.Context) (RevisionEvidence, erro
 	if err != nil {
 		return RevisionEvidence{}, fmt.Errorf("resolve git commit: %w", err)
 	}
-	status, err := gitOutput(ctx, root, "status", "--porcelain", "--untracked-files=no")
+	status, err := gitOutput(ctx, root, "status", "--porcelain", "--untracked-files=normal")
 	if err != nil {
 		return RevisionEvidence{}, fmt.Errorf("resolve git status: %w", err)
 	}
