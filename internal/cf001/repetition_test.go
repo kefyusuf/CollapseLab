@@ -302,3 +302,87 @@ func containsReason(reasons []string, needle string) bool {
 	}
 	return false
 }
+
+
+func TestVerifyRepetitionSummaryRejectsRunIDPathTraversal(t *testing.T) {
+	runsRoot := t.TempDir()
+	outsideRoot := filepath.Dir(runsRoot)
+	outsideRunID := "outside-run"
+	outsideDir := filepath.Join(outsideRoot, outsideRunID)
+
+	bundle, err := CreateRunBundle(outsideRoot, outsideRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := []byte(validYAML)
+	if err := bundle.Write("experiment.yaml", config); err != nil {
+		t.Fatal(err)
+	}
+	if err := bundle.WriteJSON("revision.json", RevisionEvidence{
+		Commit: strings.Repeat("a", 40),
+		Dirty:  false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := bundle.WriteJSON("environment.json", map[string]any{"go_version": "go1.27.1"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := bundle.Write("assertions.json", []byte("{\"schema_version\":1,\"status\":\"NOT_SUPPORTED\",\"metrics\":{}}\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bundle.Finalize(ManifestMetadata{
+		SchemaVersion:     1,
+		ExperimentID:      "CF-001",
+		ExperimentVersion: 1,
+		CreatedAt:         time.Now().UTC(),
+		RevisionSHA:       strings.Repeat("a", 40),
+		ConfigSHA256:      SHA256Hex(config),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	environmentData, err := os.ReadFile(filepath.Join(outsideDir, "environment.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestData, err := os.ReadFile(filepath.Join(outsideDir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	summary := RepetitionSummary{
+		SchemaVersion:     1,
+		CreatedAt:         time.Now().UTC(),
+		RevisionSHA:       strings.Repeat("a", 40),
+		ConfigSHA256:      SHA256Hex(config),
+		EnvironmentSHA256: SHA256Hex(environmentData),
+		RunCount:          3,
+		Runs: []RepetitionRun{
+			{
+				RunID:             "../" + outsideRunID,
+				RevisionSHA:       strings.Repeat("a", 40),
+				ConfigSHA256:      SHA256Hex(config),
+				EnvironmentSHA256: SHA256Hex(environmentData),
+				ManifestSHA256:    SHA256Hex(manifestData),
+				Status:            EvaluationNotSupported,
+			},
+			repetitionRun("run-2", EvaluationNotSupported, 4.7, 7, 98, 100, true, true),
+			repetitionRun("run-3", EvaluationNotSupported, 4.7, 7, 98, 100, true, true),
+		},
+	}
+	summary.Assessment = AssessRepetitions(validConfig(), summary.Runs)
+
+	summaryPath := filepath.Join(t.TempDir(), "summary.json")
+	data, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(summaryPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err = VerifyRepetitionSummary(summaryPath, runsRoot)
+	if err == nil || !strings.Contains(err.Error(), "invalid run id") {
+		t.Fatalf("expected invalid run id rejection before bundle access, got %v", err)
+	}
+}
