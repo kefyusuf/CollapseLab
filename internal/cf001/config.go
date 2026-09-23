@@ -10,6 +10,19 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+const (
+	canonicalExperimentName    = "coordinated-omission"
+	canonicalExperimentVersion = 1
+	canonicalBaseServiceTime   = 50 * time.Millisecond
+	canonicalWorkPath          = "/work"
+	canonicalTrialDuration     = 30 * time.Second
+	canonicalClosedVUs         = 5
+	canonicalOpenRateRPS       = 100
+	canonicalOpenVUs           = 100
+	maxControlAfter            = 25 * time.Second
+	maxControlStallDuration    = 5 * time.Second
+)
+
 // Duration keeps experiment configuration human-readable while preserving
 // time.Duration semantics inside the implementation.
 type Duration struct {
@@ -107,23 +120,32 @@ func (cfg Config) Validate() error {
 	if cfg.ID != "CF-001" {
 		return fmt.Errorf("id must be CF-001")
 	}
-	if cfg.Version < 1 {
-		return fmt.Errorf("version must be at least 1")
+	if cfg.Name != canonicalExperimentName {
+		return fmt.Errorf("name must be %q for CF-001 v1", canonicalExperimentName)
 	}
-	if cfg.SUT.BaseServiceTime.Duration <= 0 {
-		return fmt.Errorf("sut.base_service_time must be positive")
+	if cfg.Version != canonicalExperimentVersion {
+		return fmt.Errorf("version must be %d for CF-001 v1", canonicalExperimentVersion)
 	}
-	if !strings.HasPrefix(cfg.SUT.WorkPath, "/") || strings.HasPrefix(cfg.SUT.WorkPath, "//") {
-		return fmt.Errorf("sut.work_path must be a local absolute HTTP path")
+	if cfg.SUT.BaseServiceTime.Duration != canonicalBaseServiceTime {
+		return fmt.Errorf("sut.base_service_time must be %s for CF-001 v1", canonicalBaseServiceTime)
 	}
-	if cfg.Trial.Duration.Duration < 15*time.Second {
-		return fmt.Errorf("trial.duration must be at least 15s")
+	if cfg.SUT.WorkPath != canonicalWorkPath {
+		return fmt.Errorf("sut.work_path must be %q for CF-001 v1", canonicalWorkPath)
+	}
+	if cfg.Trial.Duration.Duration != canonicalTrialDuration {
+		return fmt.Errorf("trial.duration must be %s for CF-001 v1", canonicalTrialDuration)
 	}
 	if cfg.Trial.TriggerAfter.Duration < 5*time.Second {
 		return fmt.Errorf("trial.trigger_after must be at least 5s")
 	}
+	if cfg.Trial.TriggerAfter.Duration > maxControlAfter {
+		return fmt.Errorf("trial.trigger_after must not exceed %s", maxControlAfter)
+	}
 	if cfg.Trial.StallDuration.Duration <= 0 {
 		return fmt.Errorf("trial.stall_duration must be positive")
+	}
+	if cfg.Trial.StallDuration.Duration > maxControlStallDuration {
+		return fmt.Errorf("trial.stall_duration must not exceed %s", maxControlStallDuration)
 	}
 	if cfg.Recovery.StabilityWindow.Duration <= 0 {
 		return fmt.Errorf("recovery.stability_window must be positive")
@@ -135,14 +157,17 @@ func (cfg Config) Validate() error {
 	if cfg.Closed.Executor != "constant-vus" {
 		return fmt.Errorf("closed.executor must be constant-vus")
 	}
-	if cfg.Closed.VUs <= 0 {
-		return fmt.Errorf("closed.vus must be positive")
+	if cfg.Closed.VUs != canonicalClosedVUs {
+		return fmt.Errorf("closed.vus must be %d for CF-001 v1", canonicalClosedVUs)
 	}
 	if cfg.Open.Executor != "constant-arrival-rate" {
 		return fmt.Errorf("open.executor must be constant-arrival-rate")
 	}
-	if cfg.Open.RateRPS <= 0 {
-		return fmt.Errorf("open.rate_rps must be positive")
+	if cfg.Open.RateRPS != canonicalOpenRateRPS {
+		return fmt.Errorf("open.rate_rps must be %d for CF-001 v1", canonicalOpenRateRPS)
+	}
+	if cfg.Open.PreallocatedVUs != canonicalOpenVUs {
+		return fmt.Errorf("open.preallocated_vus must be %d for CF-001 v1", canonicalOpenVUs)
 	}
 	minimumOpenVUs := int(math.Ceil(float64(cfg.Open.RateRPS)*cfg.Trial.StallDuration.Duration.Seconds())) + 10
 	if cfg.Open.PreallocatedVUs < minimumOpenVUs {
