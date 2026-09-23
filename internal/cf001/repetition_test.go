@@ -386,3 +386,22 @@ func TestVerifyRepetitionSummaryRejectsRunIDPathTraversal(t *testing.T) {
 		t.Fatalf("expected invalid run id rejection before bundle access, got %v", err)
 	}
 }
+
+
+func TestAssessRepetitionsRejectsDuplicateRunIDs(t *testing.T) {
+	cfg := validConfig()
+	runs := []RepetitionRun{
+		repetitionRun("run-1", EvaluationNotSupported, 4.7, 7.0, 98, 100, true, true),
+		repetitionRun("run-1", EvaluationNotSupported, 4.8, 7.1, 98, 100, true, true),
+		repetitionRun("run-3", EvaluationNotSupported, 4.75, 7.2, 98, 100, true, true),
+	}
+
+	assessment := AssessRepetitions(cfg, runs)
+
+	if assessment.Passed {
+		t.Fatalf("duplicate run ids must fail repetition gate: %+v", assessment)
+	}
+	if !containsReason(assessment.Reasons, "duplicate run id") {
+		t.Fatalf("missing duplicate-run reason: %+v", assessment.Reasons)
+	}
+}

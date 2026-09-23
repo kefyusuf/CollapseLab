@@ -3,6 +3,7 @@ package cf001
 import (
 	"context"
 	"os"
+	"strings"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -65,5 +66,31 @@ func runGit(t *testing.T, root string, args ...string) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v: %s", args, err, output)
+	}
+}
+
+
+func TestGitRevisionSourceSanitizesCredentialsFromOrigin(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "collapselab@example.test")
+	runGit(t, root, "config", "user.name", "CollapseLab Test")
+
+	if err := os.WriteFile(filepath.Join(root, "tracked.txt"), []byte("baseline\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "tracked.txt")
+	runGit(t, root, "commit", "-m", "baseline")
+	runGit(t, root, "remote", "add", "origin", "https://user:super-secret@example.test/owner/repo.git")
+
+	evidence, err := (GitRevisionSource{RepoRoot: root}).Revision(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(evidence.Repository, "user") || strings.Contains(evidence.Repository, "super-secret") {
+		t.Fatalf("repository evidence leaked remote credentials: %q", evidence.Repository)
+	}
+	if evidence.Repository != "https://example.test/owner/repo.git" {
+		t.Fatalf("sanitized repository = %q", evidence.Repository)
 	}
 }
