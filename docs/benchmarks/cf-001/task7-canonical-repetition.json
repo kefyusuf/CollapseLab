@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "experiment_id": "CF-001",
+  "source": {
+    "workflow_run_id": 35826720691,
+    "artifact_id": 10735228527,
+    "artifact_name": "cf001-task7-35826720691",
+    "artifact_sha256": "3f5c2d0700bca768f9ab308130473c7ce3af4c4887395cd38a38f18c6ad73121"
+  },
+  "identity": {
+    "revision_sha": "6706fd5acbbca1ebf1278878a81478b5f01b2127",
+    "config_sha256": "8bcd67bbd2f7abbf8bee30ebce8c241df60b5f7ec11691ff8d5f193a974e8df9",
+    "environment_sha256": "b801860731181d3a97b35a82ef58ddccecc0fe8c61441e8ca32f1009cc00f605"
+  },
+  "repetition_gate": "PASS",
+  "hypothesis_consensus": "ALL_NOT_SUPPORTED",
+  "runs": [
+    {
+      "run_id": "20260923T062827Z-6706fd5a",
+      "status": "NOT_SUPPORTED",
+      "closed_p99_ms": 51.60264536,
+      "open_p99_ms": 242.587681,
+      "p99_ratio": 4.701070639065392,
+      "peak_inflight_ratio": 9.4,
+      "closed_pretrigger_rate": 97.88705390719959,
+      "open_pretrigger_rate": 100.00001481483308,
+      "open_achieved_ratio": 0.9985910609856316,
+      "closed_recovered": true,
+      "open_recovered": true
+    },
+    {
+      "run_id": "20260923T062935Z-6706fd5a",
+      "status": "NOT_SUPPORTED",
+      "closed_p99_ms": 51.66967458,
+      "open_p99_ms": 244.52164113999748,
+      "p99_ratio": 4.732401415871226,
+      "peak_inflight_ratio": 9,
+      "closed_pretrigger_rate": 97.99989588464507,
+      "open_pretrigger_rate": 99.99558024145706,
+      "open_achieved_ratio": 0.9986112660971976,
+      "closed_recovered": true,
+      "open_recovered": true
+    },
+    {
+      "run_id": "20260923T063042Z-6706fd5a",
+      "status": "NOT_SUPPORTED",
+      "closed_p99_ms": 51.6199245,
+      "open_p99_ms": 251.20023675999775,
+      "p99_ratio": 4.866342583666462,
+      "peak_inflight_ratio": 8.8,
+      "closed_pretrigger_rate": 98.00237243091242,
+      "open_pretrigger_rate": 99.99779505900624,
+      "open_achieved_ratio": 0.998620118703417,
+      "closed_recovered": true,
+      "open_recovered": true
+    }
+  ],
+  "stats": {
+    "closed_p99_ms": {
+      "min": 51.60264536,
+      "mean": 51.63074814666666,
+      "max": 51.66967458,
+      "cv": 0.000550344491337151
+    },
+    "open_p99_ms": {
+      "min": 242.587681,
+      "mean": 246.10318629999844,
+      "max": 251.20023675999775,
+      "cv": 0.014992184851014358
+    },
+    "p99_ratio": {
+      "min": 4.701070639065392,
+      "mean": 4.76660487953436,
+      "max": 4.866342583666462,
+      "cv": 0.015037057647765792
+    },
+    "peak_inflight_ratio": {
+      "min": 8.8,
+      "mean": 9.066666666666666,
+      "max": 9.4,
+      "cv": 0.027512186667455443
+    },
+    "open_achieved_ratio": {
+      "min": 0.9985910609856316,
+      "mean": 0.9986074819287487,
+      "max": 0.998620118703417,
+      "cv": 0.000012177760599721478
+    }
+  },
+  "threshold_crossings": {
+    "open_p99_at_least_250_ms": "1/3",
+    "p99_ratio_at_least_5x": "0/3"
+  },
+  "interpretation": {
+    "mechanism_reproducible": true,
+    "configured_hypothesis_reproducibly_supported": false,
+    "thresholds_changed": false
+  }
+}

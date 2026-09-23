@@ -344,7 +344,8 @@ Completed and verified:
 - Task 3 — Docker Compose + Prometheus infrastructure,
 - Task 4 — explicit closed/open k6 workload semantics,
 - Task 5 — evidence parsing and measurement-validity model,
-- Task 6 — CF-001 runner and revision-bound evidence bundle.
+- Task 6 — CF-001 runner and revision-bound evidence bundle,
+- Task 7 — canonical repetition and reproducibility gate.
 
 Task 3 runtime evidence:
 
@@ -404,4 +405,27 @@ Task 6 verification evidence:
 - final canonical measurement: VALID
 - final hypothesis result: `NOT_SUPPORTED` (thresholds deliberately unchanged)
 
-Next implementation gate: **Task 7 — canonical repetition and reproducibility gate**.
+Task 7 verification evidence:
+
+- repetition-contract RED run: #35 / `35826448491`
+- final implementation GREEN run: #36 / `35826720691`
+- verified implementation head: `6706fd5acbbca1ebf1278878a81478b5f01b2127`
+- canonical repetition count: 3
+- repetition gate: PASS
+- hypothesis consensus: `ALL_NOT_SUPPORTED`
+- p99 ratio min/mean/max: 4.701071 / 4.766605 / 4.866343
+- peak in-flight ratio min/mean/max: 8.8 / 9.066667 / 9.4
+- open p99 min/mean/max: 242.587681 / 246.103186 / 251.200237 ms
+- open achieved-rate mean: 0.998607
+- all closed/open recovery states: true
+- common revision/config/environment identity across all three runs: PASS
+- child bundle and manifest digest audit: PASS
+- thresholds intentionally unchanged
+
+Interpretation:
+
+- the coordinated-omission mechanism is reproducible,
+- the current 5× p99-ratio hypothesis criterion is reproducibly not met under the canonical profile,
+- the 250ms open-p99 criterion is threshold-adjacent and crossed in one of three runs.
+
+Next implementation gate: **Task 8 — documentation, whole-branch verification, and review**.

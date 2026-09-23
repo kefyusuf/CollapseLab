@@ -1,6 +1,6 @@
 # CF-001 Coordinated Omission — Implementation Plan and Execution Ledger
 
-**Status:** Tasks 1–6 complete; Task 7 is the next implementation gate.  
+**Status:** Tasks 1–7 complete; Task 8 is the next implementation gate.  
 **Spec:** `docs/superpowers/specs/2026-09-22-collapselab-v0.1-design.md`
 
 ## Goal
@@ -621,22 +621,185 @@ Task 6 is complete because its acceptance criterion is a trustworthy runner and 
 
 A `SUPPORTED`, `NOT_SUPPORTED`, or `INVALID` experiment result must be persisted honestly as long as runner execution and evidence integrity are correct.
 
-## Task 7 — Canonical Repetition Gate — NEXT
+## Task 7 — Canonical Repetition & Reproducibility Gate — COMPLETE
 
-Run at least three clean canonical repetitions.
+Task 7 separates **experiment reproducibility** from the per-run CF-001 hypothesis result.
 
-Require:
+The repetition gate does not require every run to be `SUPPORTED`. It requires that the measurement remains valid and that the same qualitative failure mechanism is reproduced under a stable canonical environment.
 
-- all runs valid,
-- same qualitative mechanism,
-- no generator saturation,
-- comparable pre-trigger load,
-- stable recovery behavior,
-- no material telemetry gaps around trigger.
+### Locked repetition semantics
 
-Only curated summaries may enter Git.
+A Task 7 repetition set requires at least three runs with:
 
-## Task 8 — Documentation, Whole-Branch Verification, and Review — PENDING
+- the same exact revision,
+- the same config SHA-256,
+- the same environment/tool/image identity digest,
+- no `INVALID` run,
+- no generator-saturation evidence,
+- comparable pre-trigger baselines across runs,
+- p99 amplification in the same direction on every run,
+- in-flight amplification in the same direction on every run,
+- successful closed/open recovery on every run.
+
+Hypothesis outcomes are reported separately as:
+
+- `ALL_SUPPORTED`
+- `ALL_NOT_SUPPORTED`
+- `MIXED`
+- `INVALID`
+
+A `MIXED` threshold result does not automatically fail the repetition gate when the qualitative mechanism itself is stable.
+
+### Rulings
+
+**Ruling — qualitative mechanism gate vs. hypothesis threshold**
+
+Task 7 gates on valid repeated mechanism direction, not on forcing `SUPPORTED` in all runs.
+
+Reason: a strict requirement that every run cross the configured hypothesis threshold would conflate reproducibility with an arbitrary decision boundary and would hide natural threshold-adjacent variance.
+
+Cost if wrong: a mechanism with highly variable amplitude could still pass if its direction remains consistent. To make that visible, Task 7 persists min/mean/max and coefficient-of-variation statistics instead of inventing a new unapproved amplitude threshold.
+
+**Ruling — recovery**
+
+For canonical CF-001, every repetition must recover in both closed and open trials.
+
+Reason: CF-001 models one deterministic temporary stall, not a metastable recovery failure.
+
+Cost if wrong: a future experiment intentionally studying non-recovery must use a different experiment contract instead of reusing this gate unchanged.
+
+### TDD evidence
+
+RED:
+
+- run #35 / `35826448491`
+- head `d59391cf959a3cec5fddc27877da5ca62164f0e6`
+- failure was exactly the missing repetition assessment/orchestration API:
+  - `AssessRepetitions`
+  - `RepetitionRun`
+  - hypothesis-consensus values
+  - three-run repetition runner and summary verifier.
+
+GREEN:
+
+- run #36 / `35826720691`
+- implementation head `6706fd5acbbca1ebf1278878a81478b5f01b2127`
+- Go 1.27.1 race suite: PASS
+- Compose/infrastructure gate: PASS
+- pinned k6 baseline checks: PASS
+- three canonical CF-001 repetitions: PASS
+- repetition-summary verification against all child bundles: PASS
+- Task 7 artifact upload: PASS
+- repetition gate enforcement: PASS
+- teardown: PASS
+
+### Canonical repetition evidence
+
+Workflow run:
+
+`35826720691`
+
+Artifact:
+
+- name: `cf001-task7-35826720691`
+- artifact ID: `10735228527`
+- archive SHA-256: `3f5c2d0700bca768f9ab308130473c7ce3af4c4887395cd38a38f18c6ad73121`
+
+Common identity:
+
+```text
+revision:
+6706fd5acbbca1ebf1278878a81478b5f01b2127
+
+config SHA-256:
+8bcd67bbd2f7abbf8bee30ebce8c241df60b5f7ec11691ff8d5f193a974e8df9
+
+environment SHA-256:
+b801860731181d3a97b35a82ef58ddccecc0fe8c61441e8ca32f1009cc00f605
+```
+
+Independent artifact audit found zero revision/config/environment/manifest/artifact digest mismatches.
+
+### Three-run result
+
+| Run | Evaluation | Closed p99 | Open p99 | p99 ratio | In-flight ratio | Open achieved | Recovery |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | NOT_SUPPORTED | 51.602645 ms | 242.587681 ms | 4.701071× | 9.4× | 0.998591 | true/true |
+| 2 | NOT_SUPPORTED | 51.669675 ms | 244.521641 ms | 4.732401× | 9.0× | 0.998611 | true/true |
+| 3 | NOT_SUPPORTED | 51.619925 ms | 251.200237 ms | 4.866343× | 8.8× | 0.998620 | true/true |
+
+Cross-run statistics:
+
+```text
+closed p99:
+  min   51.602645 ms
+  mean  51.630748 ms
+  max   51.669675 ms
+  CV     0.000550
+
+open p99:
+  min   242.587681 ms
+  mean  246.103186 ms
+  max   251.200237 ms
+  CV     0.014992
+
+p99 ratio:
+  min   4.701071
+  mean  4.766605
+  max   4.866343
+  CV     0.015037
+
+peak in-flight ratio:
+  min   8.8
+  mean  9.066667
+  max   9.4
+  CV     0.027512
+
+open achieved-rate ratio:
+  min   0.998591
+  mean  0.998607
+  max   0.998620
+  CV     0.000012
+```
+
+### Task 7 conclusion
+
+Repetition gate:
+
+**PASS**
+
+Hypothesis consensus:
+
+**ALL_NOT_SUPPORTED**
+
+The mechanism is strongly reproducible:
+
+- closed p99 is extremely stable,
+- open p99 is consistently ~4.7–4.9× closed p99,
+- in-flight amplification is consistently ~8.8–9.4×,
+- open arrival delivery remains ~99.86% of target,
+- all six trial phases recover,
+- baselines remain comparable,
+- no run is measurement-invalid.
+
+The configured hypothesis is also reproducibly **not supported as a whole**:
+
+- the `open p99 >= 250 ms` threshold is crossed in 1 of 3 runs,
+- the `open/closed p99 ratio >= 5×` threshold is crossed in 0 of 3 runs.
+
+Therefore the earlier `NOT_SUPPORTED` result is not explained by random run-to-run noise alone. The 5× ratio criterion is consistently above the observed canonical amplitude.
+
+Task 7 does **not** change the thresholds. Any future hypothesis revision must be a separate design/product decision, not a benchmark-tuning reaction.
+
+### Git retention rule
+
+Raw repetition bundles remain under ignored `runs/` paths and GitHub Actions artifacts.
+
+Only the curated Task 7 summary is committed under:
+
+`docs/benchmarks/cf-001/task7-canonical-repetition.json`
+
+## Task 8 — Documentation, Whole-Branch Verification, and Review — NEXT
 
 Before merge:
 
@@ -655,6 +818,6 @@ Feature branch:
 
 `feat/cf-001-coordinated-omission`
 
-At Task 6 completion it remains isolated from `main`; `main` remains bootstrap-only.
+At Task 7 completion it remains isolated from `main`; `main` remains bootstrap-only.
 
-The next safe implementation boundary is **Task 7 only**.
+The next safe implementation boundary is **Task 8 only**.
