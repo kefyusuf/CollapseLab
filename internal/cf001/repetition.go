@@ -346,6 +346,9 @@ func VerifyRepetitionSummary(summaryPath, runsRoot string) error {
 	verifiedRuns := make([]RepetitionRun, 0, len(summary.Runs))
 
 	for _, declared := range summary.Runs {
+		if !validRunID(declared.RunID) {
+			return fmt.Errorf("invalid run id %q in repetition summary", declared.RunID)
+		}
 		dir := filepath.Join(runsRoot, declared.RunID)
 		if err := VerifyRunBundle(dir); err != nil {
 			return fmt.Errorf("verify child bundle %s: %w", declared.RunID, err)
