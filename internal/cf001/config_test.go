@@ -186,3 +186,35 @@ func TestCanonicalConfigLoads(t *testing.T) {
 		t.Fatalf("canonical config drifted:\n got: %#v\nwant: %#v", cfg, validConfig())
 	}
 }
+
+
+func TestConfigValidateRejectsRuntimeContractDrift(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{"experiment name", func(c *Config) { c.Name = "different-name" }},
+		{"experiment version", func(c *Config) { c.Version = 2 }},
+		{"base service time", func(c *Config) { c.SUT.BaseServiceTime = duration(75 * time.Millisecond) }},
+		{"work path", func(c *Config) { c.SUT.WorkPath = "/different" }},
+		{"trial duration", func(c *Config) { c.Trial.Duration = duration(45 * time.Second) }},
+		{"closed vus", func(c *Config) { c.Closed.VUs = 7 }},
+		{"open rate", func(c *Config) { c.Open.RateRPS = 120 }},
+		{"open preallocated vus", func(c *Config) { c.Open.PreallocatedVUs = 120 }},
+		{"control trigger upper bound", func(c *Config) { c.Trial.TriggerAfter = duration(26 * time.Second) }},
+		{"control stall upper bound", func(c *Config) {
+			c.Trial.StallDuration = duration(6 * time.Second)
+			c.Open.PreallocatedVUs = 700
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			tt.mutate(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatalf("expected runtime contract drift to be rejected for %s", tt.name)
+			}
+		})
+	}
+}
