@@ -162,7 +162,7 @@ func EvaluatePair(cfg Config, closed, opened TrialEvidence) PairEvaluation {
 
 	if result.Metrics.ClosedP99MS > cfg.Hypothesis.MaximumClosedP99MS {
 		result.HypothesisReasons = append(result.HypothesisReasons,
-			fmt.Sprintf("closed p99 %.2fms exceeds %.2fms",
+			fmt.Sprintf("closed p99 %.6fms exceeds %.6fms",
 				result.Metrics.ClosedP99MS,
 				cfg.Hypothesis.MaximumClosedP99MS,
 			),
@@ -170,7 +170,7 @@ func EvaluatePair(cfg Config, closed, opened TrialEvidence) PairEvaluation {
 	}
 	if result.Metrics.OpenP99MS < cfg.Hypothesis.MinimumOpenP99MS {
 		result.HypothesisReasons = append(result.HypothesisReasons,
-			fmt.Sprintf("open p99 %.2fms below %.2fms",
+			fmt.Sprintf("open p99 %.6fms below %.6fms",
 				result.Metrics.OpenP99MS,
 				cfg.Hypothesis.MinimumOpenP99MS,
 			),
@@ -178,7 +178,7 @@ func EvaluatePair(cfg Config, closed, opened TrialEvidence) PairEvaluation {
 	}
 	if result.Metrics.P99Ratio < cfg.Hypothesis.MinimumP99RatioOpenOverClosed {
 		result.HypothesisReasons = append(result.HypothesisReasons,
-			fmt.Sprintf("p99 ratio %.2f below %.2f",
+			fmt.Sprintf("p99 ratio %.6f below %.6f",
 				result.Metrics.P99Ratio,
 				cfg.Hypothesis.MinimumP99RatioOpenOverClosed,
 			),
@@ -186,7 +186,7 @@ func EvaluatePair(cfg Config, closed, opened TrialEvidence) PairEvaluation {
 	}
 	if result.Metrics.PeakInflightRatio < cfg.Hypothesis.MinimumPeakInflightRatioOpenOverClosed {
 		result.HypothesisReasons = append(result.HypothesisReasons,
-			fmt.Sprintf("peak in-flight ratio %.2f below %.2f",
+			fmt.Sprintf("peak in-flight ratio %.6f below %.6f",
 				result.Metrics.PeakInflightRatio,
 				cfg.Hypothesis.MinimumPeakInflightRatioOpenOverClosed,
 			),
