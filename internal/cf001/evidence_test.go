@@ -473,3 +473,20 @@ func TestEvaluatePairInvalidatesHTTPOrCheckFailuresBeforeHypothesis(t *testing.T
 		})
 	}
 }
+
+
+func TestEvaluatePairBoundaryReasonPreservesDecisionPrecision(t *testing.T) {
+	cfg := validConfig()
+	closed, opened := validEvidencePair(cfg)
+	opened.K6.WorkLatencyP99MS = 249.996
+
+	result := EvaluatePair(cfg, closed, opened)
+	if result.Status != EvaluationNotSupported {
+		t.Fatalf("status = %q, want NOT_SUPPORTED; result=%+v", result.Status, result)
+	}
+
+	reasons := strings.Join(result.HypothesisReasons, "\n")
+	if !strings.Contains(reasons, "open p99 249.996000ms below 250.000000ms") {
+		t.Fatalf("boundary reason hides decision precision: %q", reasons)
+	}
+}
