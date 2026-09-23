@@ -304,3 +304,19 @@ func formatFloat(value float64) string {
 		"0",
 	), ".")
 }
+
+
+func TestRunReportLabelsEvaluationStatusWithoutMisclassifyingMeasurement(t *testing.T) {
+	report := renderRunReport(
+		"run-001",
+		RevisionEvidence{Commit: strings.Repeat("a", 40)},
+		PairEvaluation{Status: EvaluationNotSupported},
+	)
+
+	if !strings.Contains(report, "- Evaluation status: **NOT_SUPPORTED**") {
+		t.Fatalf("report does not label evaluation status correctly:\n%s", report)
+	}
+	if strings.Contains(report, "Measurement status:") {
+		t.Fatalf("report misclassifies evaluation result as measurement status:\n%s", report)
+	}
+}
