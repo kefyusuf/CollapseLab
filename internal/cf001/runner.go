@@ -333,7 +333,7 @@ func renderRunReport(runID string, revision RevisionEvidence, evaluation PairEva
 	var b strings.Builder
 	fmt.Fprintf(&b, "# CF-001 Run %s\n\n", runID)
 	fmt.Fprintf(&b, "- Revision: `%s`\n", revision.Commit)
-	fmt.Fprintf(&b, "- Measurement status: **%s**\n", evaluation.Status)
+	fmt.Fprintf(&b, "- Evaluation status: **%s**\n", evaluation.Status)
 	fmt.Fprintf(&b, "- Closed p99: %.2f ms\n", evaluation.Metrics.ClosedP99MS)
 	fmt.Fprintf(&b, "- Open p99: %.2f ms\n", evaluation.Metrics.OpenP99MS)
 	fmt.Fprintf(&b, "- p99 ratio: %.2f\n", evaluation.Metrics.P99Ratio)
