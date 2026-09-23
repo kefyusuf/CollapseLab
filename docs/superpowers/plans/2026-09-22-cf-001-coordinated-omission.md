@@ -1,6 +1,6 @@
 # CF-001 Coordinated Omission — Implementation Plan and Execution Ledger
 
-**Status:** Tasks 1–7 complete; Task 8 is the next implementation gate.  
+**Status:** Tasks 1–8 complete; integration decision pending.  
 **Spec:** `docs/superpowers/specs/2026-09-22-collapselab-v0.1-design.md`
 
 ## Goal
@@ -799,18 +799,69 @@ Only the curated Task 7 summary is committed under:
 
 `docs/benchmarks/cf-001/task7-canonical-repetition.json`
 
-## Task 8 — Documentation, Whole-Branch Verification, and Review — NEXT
+## Task 8 — Documentation, Whole-Branch Verification, and Review — COMPLETE
 
-Before merge:
+Task 8 adds no new CF-001 feature behavior. It closes documentation, whole-branch correctness/security review, CI hygiene, and integration handoff.
 
-- full Go race suite,
-- Compose/runtime gate,
-- canonical CF-001 run sequence,
-- evidence-bundle integrity check,
-- documentation of mechanism and limitations,
-- whole-branch review,
-- external review gate when available,
-- no merge while Important/Critical findings remain.
+### Whole-branch review
+
+The review covered the feature branch from the bootstrap `main` base through the completed CF-001 implementation.
+
+Critical findings after fix-pass:
+
+`0`
+
+Important findings after fix-pass:
+
+`0`
+
+Task 8 Important fixes:
+
+- repetition child-path containment;
+- configuration/runtime contract binding;
+- duplicate repetition detection;
+- Git remote credential sanitization.
+
+Detailed evidence: `docs/reviews/cf001-task8-review.md`.
+
+### Public documentation
+
+Task 8 publishes:
+
+- `README.md` — repository purpose, verified result, quick start, scope, roadmap, safety/limitations;
+- `ARCHITECTURE.md` — topology, control/data planes, evidence pipeline, trust boundaries;
+- `experiments/cf-001-coordinated-omission/README.md` — mechanism, profile, validity, result, execution guide;
+- Task 8 review record.
+
+### CI closeout
+
+The final workflow includes:
+
+- module-closure verification;
+- `go vet ./...`;
+- `go test -race ./...`;
+- Compose model + real Docker smoke checks;
+- Prometheus target verification;
+- pinned k6 closed/open validation;
+- three canonical revision-bound repetitions;
+- child-bundle/repetition-summary verification;
+- repetition gate enforcement;
+- artifact upload;
+- teardown/no residual containers.
+
+`actions/upload-artifact` is upgraded to v6 to use the Node 24 generation.
+
+### External review
+
+CodeRabbit review was attempted according to the installed review workflow, but the CLI was absent and its installer host could not be resolved from the execution environment.
+
+No CodeRabbit review is claimed.
+
+The feature branch is left unmerged so a human/external reviewer can still inspect the PR before landing.
+
+### Final-head rule
+
+The Task 8 closeout commit itself must pass the full workflow above before integration. The workflow result is checked outside this document so recording the run ID does not create another unverified head.
 
 ## Current Branch State
 
@@ -818,6 +869,6 @@ Feature branch:
 
 `feat/cf-001-coordinated-omission`
 
-At Task 7 completion it remains isolated from `main`; `main` remains bootstrap-only.
+At Task 8 completion it remains isolated from `main`; `main` remains bootstrap-only.
 
-The next safe implementation boundary is **Task 8 only**.
+Implementation is complete. The next step is an explicit branch-integration choice; no merge is implied.

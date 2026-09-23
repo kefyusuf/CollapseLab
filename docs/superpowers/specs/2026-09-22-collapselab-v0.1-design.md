@@ -345,7 +345,8 @@ Completed and verified:
 - Task 4 — explicit closed/open k6 workload semantics,
 - Task 5 — evidence parsing and measurement-validity model,
 - Task 6 — CF-001 runner and revision-bound evidence bundle,
-- Task 7 — canonical repetition and reproducibility gate.
+- Task 7 — canonical repetition and reproducibility gate,
+- Task 8 — documentation, whole-branch verification, and review closeout.
 
 Task 3 runtime evidence:
 
@@ -428,4 +429,13 @@ Interpretation:
 - the current 5× p99-ratio hypothesis criterion is reproducibly not met under the canonical profile,
 - the 250ms open-p99 criterion is threshold-adjacent and crossed in one of three runs.
 
-Next implementation gate: **Task 8 — documentation, whole-branch verification, and review**.
+Task 8 closeout:
+
+- public README/architecture/CF-001 experiment documentation: complete
+- whole-branch author review: complete
+- open Critical findings after fix-pass: 0
+- open Important findings after fix-pass: 0
+- CodeRabbit CLI review: unavailable in the execution environment (CLI missing; installer DNS resolution failed); no CodeRabbit result is claimed
+- branch remains unmerged pending explicit integration choice
+
+There is no additional CF-001 implementation gate after Task 8. Integration or a new experiment scope is a separate decision.
