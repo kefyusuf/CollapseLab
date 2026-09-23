@@ -109,8 +109,16 @@ func AssessRepetitions(cfg Config, runs []RepetitionRun) RepetitionAssessment {
 	revision := runs[0].RevisionSHA
 	configDigest := runs[0].ConfigSHA256
 	environmentDigest := runs[0].EnvironmentSHA256
+	seenRunIDs := make(map[string]struct{}, len(runs))
 
 	for _, run := range runs {
+		if _, exists := seenRunIDs[run.RunID]; exists {
+			assessment.Reasons = append(assessment.Reasons,
+				fmt.Sprintf("duplicate run id %q", run.RunID),
+			)
+		} else {
+			seenRunIDs[run.RunID] = struct{}{}
+		}
 		if strings.TrimSpace(run.RunID) == "" {
 			assessment.Reasons = append(assessment.Reasons, "run id is required")
 		}

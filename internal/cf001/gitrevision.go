@@ -3,6 +3,7 @@ package cf001
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 )
@@ -31,6 +32,7 @@ func (g GitRevisionSource) Revision(ctx context.Context) (RevisionEvidence, erro
 	}
 
 	repository, _ := gitOutput(ctx, root, "remote", "get-url", "origin")
+	repository = sanitizeGitRemote(repository)
 
 	return RevisionEvidence{
 		Commit:     commit,
@@ -48,4 +50,21 @@ func gitOutput(ctx context.Context, root string, args ...string) (string, error)
 		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+
+func sanitizeGitRemote(remote string) string {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(remote)
+	if err != nil || parsed.Scheme == "" {
+		return remote
+	}
+	if parsed.User != nil {
+		parsed.User = nil
+	}
+	return parsed.String()
 }
