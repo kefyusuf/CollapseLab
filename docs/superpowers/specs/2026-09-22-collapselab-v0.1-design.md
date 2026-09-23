@@ -343,7 +343,8 @@ Completed and verified:
 - Task 2 — deterministic SUT,
 - Task 3 — Docker Compose + Prometheus infrastructure,
 - Task 4 — explicit closed/open k6 workload semantics,
-- Task 5 — evidence parsing and measurement-validity model.
+- Task 5 — evidence parsing and measurement-validity model,
+- Task 6 — CF-001 runner and revision-bound evidence bundle.
 
 Task 3 runtime evidence:
 
@@ -385,4 +386,22 @@ Task 5 verification evidence:
 - HTTP failures and exact-204 check failures invalidate measurement before hypothesis evaluation: PASS
 - INVALID / NOT_SUPPORTED / SUPPORTED ordering: PASS
 
-Next implementation gate: **Task 6 — CF-001 runner and revision-bound evidence bundle**.
+Task 6 verification evidence:
+
+- immutable bundle primitive RED/GREEN: runs #20–21
+- runner orchestration RED/GREEN: runs #22–24
+- real revision-bound integration sequence: runs #25–27
+- revision-cleanliness RED/GREEN: runs #28–29
+- threshold-decision precision RED/GREEN: runs #30–31
+- report result-semantics RED/GREEN: runs #32–33
+- final verified production head: `bcf6c34273c344fe3b9bc7f00b2517f9659154b8`
+- final full GREEN run: #33 / `35814204850`
+- final uploaded evidence artifact: `cf001-task6-35814204850`
+- manifest/revision/config/artifact digest audit: PASS
+- dirty and untracked-source rejection: PASS
+- actual closed/open trigger timeline capture: PASS
+- pinned/resolved tool and image identity capture: PASS
+- final canonical measurement: VALID
+- final hypothesis result: `NOT_SUPPORTED` (thresholds deliberately unchanged)
+
+Next implementation gate: **Task 7 — canonical repetition and reproducibility gate**.

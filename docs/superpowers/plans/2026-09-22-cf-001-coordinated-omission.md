@@ -1,6 +1,6 @@
 # CF-001 Coordinated Omission — Implementation Plan and Execution Ledger
 
-**Status:** Tasks 1–5 complete; Task 6 is the next implementation gate.  
+**Status:** Tasks 1–6 complete; Task 7 is the next implementation gate.  
 **Spec:** `docs/superpowers/specs/2026-09-22-collapselab-v0.1-design.md`
 
 ## Goal
@@ -401,25 +401,227 @@ Final Task 5 production head:
 
 `f938727465aa88e82dce1f2db332b3317b8b3e94`
 
-## Task 6 — CF-001 Runner and Evidence Bundle — NEXT
+## Task 6 — CF-001 Runner and Revision-Bound Evidence Bundle — COMPLETE
 
-Runner responsibilities:
+Task 6 composes the previously verified components into one real, revision-bound CF-001 execution.
 
-- load canonical config,
-- record revision/environment/tool identity,
-- start clean trial state,
-- run closed trial,
-- schedule deterministic trigger through control listener,
-- capture actual trigger timestamps,
-- collect k6 and Prometheus evidence,
-- reset/verify recovery,
-- run open trial,
-- evaluate validity before hypothesis,
-- write the evidence bundle.
+The runner deliberately remains CF-001-specific. No generic multi-experiment runtime has been extracted yet.
 
-No generic runner abstraction yet.
+### Canonical execution flow
 
-## Task 7 — Canonical Repetition Gate — PENDING
+```text
+canonical experiment.yaml
+        |
+        v
+strict config validation
+        |
+        v
+Git revision + cleanliness gate
+        |
+        v
+create immutable run directory
+        |
+        v
+clean Docker lab startup
+        |
+        +--> closed workload
+        |      -> traffic observed
+        |      -> deterministic stall scheduled
+        |      -> actual stall timestamps captured
+        |      -> k6 summary
+        |      -> Prometheus rate/in-flight evidence
+        |
+        +--> open workload
+               -> traffic observed
+               -> deterministic stall scheduled
+               -> actual stall timestamps captured
+               -> k6 summary
+               -> Prometheus rate/in-flight evidence
+        |
+        v
+Task 5 validity/evaluation model
+        |
+        v
+assertions + timeline + report
+        |
+        v
+manifest + SHA-256 artifact binding
+        |
+        v
+VerifyRunBundle
+```
+
+### Revision safety
+
+Canonical evidence is refused when the repository is dirty.
+
+The Git revision source records:
+
+- exact commit SHA,
+- branch,
+- repository remote,
+- dirty state.
+
+Cleanliness includes both tracked changes and **untracked non-ignored files**.
+
+Generated evidence under the gitignored `runs/` tree does not dirty the revision.
+
+TDD evidence:
+
+- RED run #28 / `35783501368`
+  - an untracked source file was incorrectly ignored by the prior `--untracked-files=no` status check.
+- GREEN run #29 / `35813526816`
+  - `git status --porcelain --untracked-files=normal` correctly rejects untracked source while honoring `.gitignore`.
+
+This prevents a bundle from claiming to describe commit X while local, uncommitted source files actually influenced the run.
+
+### Runtime/environment identity
+
+`environment.json` records the runtime identity used for the experiment, including:
+
+- Go runtime version,
+- Docker server version,
+- Docker Compose version,
+- GOOS / GOARCH,
+- CPU count,
+- pinned k6 image plus resolved image ID,
+- pinned Prometheus image plus resolved image ID,
+- built SUT image ID.
+
+Task 6 does not infer identity from mutable image tags alone.
+
+### Immutable bundle contract
+
+Canonical bundle shape:
+
+```text
+runs/cf-001/<run-id>/
+├── manifest.json
+├── environment.json
+├── experiment.yaml
+├── revision.json
+├── timeline.jsonl
+├── closed/
+│   └── k6-summary.json
+├── open/
+│   └── k6-summary.json
+├── metrics/
+│   ├── closed.json
+│   └── open.json
+├── assertions.json
+└── report.md
+```
+
+The manifest binds:
+
+- run ID,
+- experiment ID/version,
+- creation timestamp,
+- exact revision SHA,
+- exact config SHA-256,
+- SHA-256 and byte size for every persisted evidence artifact.
+
+After finalization the `RunBundle` API refuses further writes.
+
+`VerifyRunBundle` independently verifies:
+
+- run-directory identity,
+- experiment config digest,
+- revision/manifest SHA agreement,
+- `dirty:false`,
+- every declared artifact digest and size,
+- required bundle metadata.
+
+Incomplete runner failures remove their partial bundle rather than leaving misleading canonical evidence behind.
+
+### Orchestration/runtime verification history
+
+Task 6 implementation progressed through explicit RED/GREEN gates:
+
+- run #20 / `35781068863` — RED: revision-bound bundle contract.
+- run #21 / `35781197249` — GREEN: immutable manifest/bundle primitives.
+- run #22 / `35781548190` — RED: runner orchestration contract.
+- run #23 / `35781617412` — RED while correcting Prometheus fixture encoding.
+- run #24 / `35781771981` — GREEN: runner core + evidence persistence.
+- run #25 / `35782059511` — RED: real revision-bound runner bundle required.
+- run #26 / `35782563298` — real canonical execution exposed an image-identity templating failure.
+- run #27 / `35782924708` — GREEN: first complete real runner execution and uploaded bundle.
+- run #28 / `35783501368` — RED: untracked source was missing from dirty-revision detection.
+- run #29 / `35813526816` — GREEN: exact-head runner/bundle after revision-cleanliness fix.
+- run #30 / `35813841412` — RED: threshold reason rounding hid a real decision boundary.
+- run #31 / `35813897428` — GREEN: hypothesis reasons preserve six-decimal decision precision.
+- run #32 / `35814162202` — RED: report incorrectly called `NOT_SUPPORTED` a measurement status.
+- run #33 / `35814204850` — final GREEN: evaluation-label semantics, full runner, bundle verification, artifact upload, and teardown all pass.
+
+### Final exact-head evidence
+
+Verified implementation head:
+
+`bcf6c34273c344fe3b9bc7f00b2517f9659154b8`
+
+GitHub Actions:
+
+- run #33
+- run ID: `35814204850`
+- conclusion: **SUCCESS**
+
+Uploaded artifact:
+
+- name: `cf001-task6-35814204850`
+- artifact ID: `10730889183`
+- archive digest: `sha256:16231215700b2e54e13e8e629d1cb02a7bbfc712587596c3925222e885058c9b`
+
+Independent artifact audit:
+
+- manifest revision SHA matches exact workflow head: PASS
+- `revision.dirty == false`: PASS
+- config SHA-256 binding: PASS
+- 10 declared evidence artifacts: PASS
+- every declared SHA-256 digest: PASS
+- every declared byte size: PASS
+- report status terminology: PASS
+- precision of threshold reasons: PASS
+
+### Latest canonical run result
+
+The final Task 6 run produced **valid measurement evidence**, but the configured hypothesis is:
+
+`NOT_SUPPORTED`
+
+Observed values:
+
+```text
+closed p99                  51.556193 ms
+open p99                   244.238201 ms
+open / closed p99 ratio      4.737320
+closed peak in-flight        5
+open peak in-flight         32
+peak in-flight ratio         6.4
+open achieved-rate ratio     0.998602
+closed recovered             true
+open recovered               true
+```
+
+Hypothesis reasons:
+
+```text
+open p99 244.238201ms below 250.000000ms
+p99 ratio 4.737320 below 5.000000
+```
+
+This is **not** an execution or measurement failure.
+
+The measurement passed validity checks; the exact configured hypothesis thresholds were simply not met in this run.
+
+The thresholds are intentionally **not** changed to manufacture a supported result. Task 7 owns repetition and reproducibility analysis across at least three clean canonical runs.
+
+### Task 6 ruling
+
+Task 6 is complete because its acceptance criterion is a trustworthy runner and revision-bound evidence bundle, not a predetermined hypothesis outcome.
+
+A `SUPPORTED`, `NOT_SUPPORTED`, or `INVALID` experiment result must be persisted honestly as long as runner execution and evidence integrity are correct.
+
+## Task 7 — Canonical Repetition Gate — NEXT
 
 Run at least three clean canonical repetitions.
 
@@ -453,6 +655,6 @@ Feature branch:
 
 `feat/cf-001-coordinated-omission`
 
-At Task 5 completion it remains isolated from `main`; `main` remains bootstrap-only.
+At Task 6 completion it remains isolated from `main`; `main` remains bootstrap-only.
 
-The next safe implementation boundary is **Task 6 only**.
+The next safe implementation boundary is **Task 7 only**.
